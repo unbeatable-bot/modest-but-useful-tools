@@ -17,6 +17,7 @@ async function bootstrap() {
   //app.use(express.static(path.join(__dirname, '..', 'frontend', 'build')));
   
   //app.use(cors(corsOptions));
+  
   console.log(process.env.PORT);
   console.log(configService.get("SERVER_PORT"));
   await app.listen(Number(process.env.PORT) || configService.get("SERVER_PORT"));
