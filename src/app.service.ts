@@ -13,16 +13,32 @@ export class AppService {
   // 이미지를 crop한다.
 
   async saveCroppedImage(images: Express.Multer.File[], cropPoint: any, uniqueKey:string) {
-    console.log('saveCroppedImage Service In');
+    console.log('saveCroppedImage Service In'); 
 
     const maxWidth = this.configService.get('file.size.width');
     const maxHeight = this.configService.get('file.size.height');
+    
+    const metadata = await sharp(images[0].path).metadata();
+    
+    const originalImageWidth = metadata.width;
+    const originalImageHeight = metadata.height;
+
+    console.log(JSON.stringify(metadata));
+    console.log("1: ", JSON.stringify(cropPoint));
+
+    cropPoint.x = originalImageWidth*cropPoint.x;
+    cropPoint.y = originalImageHeight*cropPoint.y;
+    cropPoint.width = originalImageWidth*cropPoint.width;
+    cropPoint.height = originalImageHeight*cropPoint.height;
+
+    console.log("2: ", JSON.stringify(cropPoint));
 
     cropPoint.x = Math.round(cropPoint.x);
     cropPoint.y = Math.round(cropPoint.y);
     cropPoint.width = Math.round(cropPoint.width);
     cropPoint.height = Math.round(cropPoint.height);
-    
+
+    console.log("3: ", JSON.stringify(cropPoint));
     const targetWidth = cropPoint.width - cropPoint.x;
     const targetHeight = cropPoint.height - cropPoint.y;
     
@@ -34,7 +50,13 @@ export class AppService {
     }
     
     let createdFiles = [];
+    
     for(let image of images) {
+      //file size가 다른지 체크한다.
+      const { width, height } = await sharp(image.path).metadata();
+      if(width != originalImageWidth || height != originalImageHeight) {
+        return `${images[0].path}와 ${image.path}의 파일크기가 다릅니다.`
+      }
       const createdFileName = await this.cropImage(image.path, image.originalname, cropPoint, isRquireResizing, uniqueKey);
       createdFiles.push(createdFileName);
     }
@@ -101,10 +123,20 @@ export class AppService {
     return createdFileName;
   }
 
-  makeImageToPdf(imageList: Array<string>, uniqueKey: string) {
+  async makeImageToPdf(imageList: Array<string>, uniqueKey: string) {
     console.log('makeImageToPdf In');
 
     const pdfSavePath = this.configService.get('file.repository.pdf');
+
+    //디렉토리 생성
+    if(!fs.existsSync(pdfSavePath)) {
+      try {
+        await fs.promises.mkdir(pdfSavePath, { recursive: true });
+        console.log(`디렉토리 생성: ${pdfSavePath}`);
+      } catch (error) {
+        console.error(`디렉토리 생성 실패: ${pdfSavePath}`, error);
+      }
+    }
 
     const doc = new PDFDocument({size: 'A4', autoFirstPage: false});
 

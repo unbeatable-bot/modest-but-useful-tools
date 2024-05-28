@@ -26,7 +26,8 @@ export class AppController {
   @Post('/file/upload')
   @UseInterceptors(FilesInterceptor('files', 600, {
     storage: diskStorage({
-      destination: '/Users/verybuck/Documents/repository/image_crop/original',
+      //destination: '/Users/verybuck/Documents/repository/image_crop/original',
+      destination: './image_crop/original',
       filename: (req, file, cb) => {
         cb(null, file.originalname);
       },
@@ -41,9 +42,12 @@ export class AppController {
       const croppedImages = await this.appService.saveCroppedImage(files, JSON.parse(cropPoint), uniqueKey);
       console.log('crop Image 생성 결과: ', croppedImages);
       //Pdf 파일 생성
-      const pdfFile = this.appService.makeImageToPdf(croppedImages, uniqueKey);
-      //files.map(file => ({ filename: file.filename, path: file.path }));
-      return {croppedImages, pdfFile};
+      if(typeof croppedImages === 'string') {
+        return croppedImages
+      } else {
+        const pdfFile = this.appService.makeImageToPdf(croppedImages, uniqueKey);
+        return {croppedImages, pdfFile};
+      }
   }
   
 }

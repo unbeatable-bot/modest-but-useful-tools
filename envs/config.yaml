@@ -7,10 +7,14 @@ redis:
 
 file:
   repository: 
-      original: /Users/verybuck/Documents/repository/image_crop/original
-      resizing: /Users/verybuck/Documents/repository/image_crop/resizing
-      cropped: /Users/verybuck/Documents/repository/image_crop/cropped
-      pdf: /Users/verybuck/Documents/repository/image_crop/pdf
+      # original: /Users/verybuck/Documents/repository/image_crop/original
+      # resizing: /Users/verybuck/Documents/repository/image_crop/resizing
+      # cropped: /Users/verybuck/Documents/repository/image_crop/cropped
+      # pdf: /Users/verybuck/Documents/repository/image_crop/pdf
+      original: ./image_crop/original
+      resizing: ./image_crop/resizing
+      cropped: ./image_crop/cropped
+      pdf: ./image_crop/pdf
   size: #A4
     width: 595 #595.28
     height: 841 #841.89

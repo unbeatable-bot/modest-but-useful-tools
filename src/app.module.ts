@@ -19,6 +19,7 @@ import config from '../configs/config';
       cache:true,
       isGlobal: true,
       envFilePath: `${process.cwd()}/envs/${process.env.NODE_ENV}.env`,
+      //envFilePath: `${process.cwd()}/envs/prod.env`,
       load: [config],
       expandVariables: true,
     }),
