@@ -1,27 +1,17 @@
-import { Body, Controller, Get, Post, Req, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, Res, UploadedFile, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { AppService } from './app.service';
 import { ConfigService } from '@nestjs/config';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import path, { extname } from 'path';
+import { Response } from 'express';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly configService: ConfigService) {}
-    //const message = configServce.get('MESSAGE');
     private originalImageSavePath = this.configService.get('file.repository.original');
-  // @Get('/')
-  // async main(): Promise<string> {
-  //   const message = this.configService.get('PDF_FILE_URL');
-  //   const apiVersion = this.configService.get('apiVersion');
-  //   console.log(message);
-  //   console.log(apiVersion);
-  //   console.log(this.configService.get('redis.host') + this.configService.get('redis.port'));
-  //   console.log(process.env.NODE_ENV);
-  //   return "finish";
-  // }
 
   @Post('/file/upload')
   @UseInterceptors(FilesInterceptor('files', 600, {
@@ -33,21 +23,36 @@ export class AppController {
       },
     }),
   })) 
-  async uploadFile(@Req() request: Request, @UploadedFiles() files: Express.Multer.File[], @Body('cropPoint') cropPoint: string) {
+  async uploadFile(
+    @Req() request: Request, @UploadedFiles() files: Express.Multer.File[],
+    @Body('cropPoint') cropPoint: string,
+    @Body('previewSize') previewSize: string
+  ) {
       console.log('uploadFile Controller In')  
 
       const uniqueKey = this.appService.makeUniqueKey();
 
       //Crop Image 생성
-      const croppedImages = await this.appService.saveCroppedImage(files, JSON.parse(cropPoint), uniqueKey);
+      const croppedImages = await this.appService.saveCroppedImage(files, JSON.parse(cropPoint), JSON.parse(previewSize), uniqueKey);
       console.log('crop Image 생성 결과: ', croppedImages);
       //Pdf 파일 생성
       if(typeof croppedImages === 'string') {
         return croppedImages
       } else {
-        const pdfFile = this.appService.makeImageToPdf(croppedImages, uniqueKey);
+        const pdfFile = await this.appService.makeImageToPdf(croppedImages, uniqueKey);
         return {croppedImages, pdfFile};
       }
   }
   
+  @Get('/imageCrop/downloadPdf/:filename')
+  imageCropDownloadPdf(@Param('filename') filename: string, @Res() res:Response) {
+    console.log('imageCropDownloadPdf start');
+
+    const pdfFilePath = this.configService.get('file.repository.pdf');
+    const filePath = path.join(pdfFilePath, '/', filename);
+
+    res.download(filePath, (err) => {
+      console.log(err);
+    });
+  }
 }

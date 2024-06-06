@@ -3,44 +3,55 @@ import sharp from 'sharp';
 import fs from 'fs';
 import PDFDocument from 'pdfkit';
 import { ConfigService } from '@nestjs/config';
+import path from 'path';
 
 @Injectable()
 export class AppService {
   constructor(private configService: ConfigService, ) {}
 
-  //1. cropped 이미지 생성 순서
-  // 버퍼 데이터를 받는다
-  // 이미지를 crop한다.
+  getActualCropPoint(cropPoint: any, previewSize: any, actualImageSize: any) {
+    //previewSize와 CropPoint로 비율을 구함 backend에서
+    //preView 크기와 crop point로 비율을 구하고
+    //이미지 실제 크기로 구한 비율의 좌표를 반환
 
-  async saveCroppedImage(images: Express.Multer.File[], cropPoint: any, uniqueKey:string) {
+    console.log('0.1: ', cropPoint);
+    console.log('0.2: ', previewSize);
+    console.log(`0.3: ${actualImageSize.width} || ${actualImageSize.height}`);
+
+    const ratioOfCropPointToSize = {
+      x: cropPoint.x/previewSize.width,
+      y: cropPoint.y/previewSize.height,
+      width: cropPoint.width/previewSize.width,
+      height: cropPoint.height/previewSize.height,
+    }
+    
+    console.log('ratioOfCropPointToSize: ', ratioOfCropPointToSize);
+
+    const actualCropPoint = {
+      x: Math.round(actualImageSize.width * ratioOfCropPointToSize.x),
+      y: Math.round(actualImageSize.height * ratioOfCropPointToSize.y),
+      width: Math.round(actualImageSize.width * ratioOfCropPointToSize.width),
+      height: Math.round(actualImageSize.height * ratioOfCropPointToSize.height),
+    }
+
+    console.log('actualCropPoint: ', actualCropPoint);
+
+    return actualCropPoint;
+    //{unit: 'px', x: 0, y: 175.41015625, width: 300, height: 382.89453125}
+    //previewSize.width, previewSize.height
+  }
+
+  async saveCroppedImage(images: Express.Multer.File[], cropPoint: any, previewSize: any, uniqueKey:string) {
     console.log('saveCroppedImage Service In'); 
 
     const maxWidth = this.configService.get('file.size.width');
     const maxHeight = this.configService.get('file.size.height');
     
-    const metadata = await sharp(images[0].path).metadata();
+    const actualImageSize = await sharp(images[0].path).metadata();
+    const actualCropPoint = this.getActualCropPoint(cropPoint, previewSize, actualImageSize);
     
-    const originalImageWidth = metadata.width;
-    const originalImageHeight = metadata.height;
-
-    console.log(JSON.stringify(metadata));
-    console.log("1: ", JSON.stringify(cropPoint));
-
-    cropPoint.x = originalImageWidth*cropPoint.x;
-    cropPoint.y = originalImageHeight*cropPoint.y;
-    cropPoint.width = originalImageWidth*cropPoint.width;
-    cropPoint.height = originalImageHeight*cropPoint.height;
-
-    console.log("2: ", JSON.stringify(cropPoint));
-
-    cropPoint.x = Math.round(cropPoint.x);
-    cropPoint.y = Math.round(cropPoint.y);
-    cropPoint.width = Math.round(cropPoint.width);
-    cropPoint.height = Math.round(cropPoint.height);
-
-    console.log("3: ", JSON.stringify(cropPoint));
-    const targetWidth = cropPoint.width - cropPoint.x;
-    const targetHeight = cropPoint.height - cropPoint.y;
+    const targetWidth = actualCropPoint.width - actualCropPoint.x;
+    const targetHeight = actualCropPoint.height - actualCropPoint.y;
     
     //리사이징 대상 여부 확인(A4기준)
     let isRquireResizing = false;
@@ -54,10 +65,11 @@ export class AppService {
     for(let image of images) {
       //file size가 다른지 체크한다.
       const { width, height } = await sharp(image.path).metadata();
-      if(width != originalImageWidth || height != originalImageHeight) {
+      if(width != actualImageSize.width || height != actualImageSize.height) {
         return `${images[0].path}와 ${image.path}의 파일크기가 다릅니다.`
       }
-      const createdFileName = await this.cropImage(image.path, image.originalname, cropPoint, isRquireResizing, uniqueKey);
+
+      const createdFileName = await this.cropImage(image, actualCropPoint, isRquireResizing, uniqueKey);
       createdFiles.push(createdFileName);
     }
 
@@ -65,8 +77,10 @@ export class AppService {
   }
 
   //Crop Image Function
-  private async cropImage(targetFile: string, originalFileName: string, cropPoint: any, isRquireResizing: boolean, uniqueKey: string) {
-    const saveFilePath = this.configService.get('file.repository.cropped') + uniqueKey;
+  private async cropImage(image: Express.Multer.File, cropPoint: any, isRquireResizing: boolean, uniqueKey: string) {
+    const saveFilePath = `${this.configService.get('file.repository.cropped')}/${uniqueKey}`;
+    const targetFile = image.path;
+    const originalFileName = image.originalname;
     const fileNameNoExtention = originalFileName.split('.')[0];
     //to-do image 데이터를 스트림 형식으로 저장하기/받아오기 : 파일로 받아오면 저장공간 이슈
     
@@ -149,8 +163,9 @@ export class AppService {
     }
 
     doc.end();
-    console.log(`${pdfFileName} PDF created`);
-    return pdfFileName;
+    
+    console.log(`${path.basename(pdfFileName)} PDF created`);
+    return path.basename(pdfFileName); ;
   }
 
   //유니크 키 생성
